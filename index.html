@@ -3,50 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tetris Mobile Fix</title>
+    <title>Tetris Mobile Final</title>
     <style>
         * { touch-action: none; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; height: 100vh; }
         
-        /* High-visibility overlay */
-        #overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #ff0055; color: #fff; z-index: 9999; 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            cursor: pointer; font-size: 30px; font-weight: bold;
-        }
-
-        .header { display: flex; justify-content: space-around; background: #111; padding: 10px; border-bottom: 2px solid #333; }
+        .header { display: flex; justify-content: space-around; background: #111; padding: 10px; border-bottom: 2px solid #00d2ff; }
         .stat-box { display: flex; flex-direction: column; }
         .label { font-size: 10px; color: #00d2ff; }
         .val { font-size: 18px; font-weight: bold; }
 
-        .game-container { display: flex; justify-content: center; align-items: flex-start; gap: 10px; margin-top: 10px; }
-        canvas#tetris { background: #000; border: 2px solid #444; height: 50vh; width: auto; }
+        .game-area { display: flex; justify-content: center; align-items: flex-start; gap: 5px; margin-top: 5px; position: relative; }
+        canvas#tetris { background: #000; border: 2px solid #333; height: 50vh; width: auto; }
         
-        .next-box { border: 2px solid #444; background: #111; padding: 5px; border-radius: 5px; }
-        canvas#next { width: 50px; height: 50px; }
+        .side-bar { display: flex; flex-direction: column; gap: 5px; }
+        .next-box { border: 1px solid #444; background: #111; padding: 5px; border-radius: 4px; }
+        canvas#next { width: 40px; height: 40px; }
 
-        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; max-width: 360px; margin: 0 auto; }
-        button { background: #222; color: white; border: 1px solid #444; padding: 25px 10px; border-radius: 15px; font-size: 20px; font-weight: bold; }
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; max-width: 380px; margin: 0 auto; }
+        button { 
+            background: #222; color: white; border: 1px solid #444; padding: 22px 5px; border-radius: 12px; 
+            font-size: 18px; font-weight: bold; touch-action: manipulation;
+        }
+        /* Special Start Button */
+        #start-btn { grid-column: span 3; background: #ff0055; border-color: #ff0055; margin-bottom: 5px; }
         .rotate { grid-column: span 3; background: #00d2ff; color: #000; }
+        
+        button:active { background: #444; transform: scale(0.95); }
     </style>
 </head>
 <body>
-
-    <div id="overlay">TAP ANYWHERE TO PLAY</div>
 
     <div class="header">
         <div class="stat-box"><span class="label">SCORE</span><span id="score" class="val">0</span></div>
         <div class="stat-box"><span class="label">BEST</span><span id="high" class="val">0</span></div>
     </div>
     
-    <div class="game-container">
+    <div class="game-area">
         <canvas id="tetris" width="240" height="400"></canvas>
-        <div class="next-box"><span class="label">NEXT</span><br><canvas id="next" width="80" height="80"></canvas></div>
+        <div class="side-bar">
+            <div class="next-box"><span class="label">NEXT</span><br><canvas id="next" width="80" height="80"></canvas></div>
+        </div>
     </div>
 
     <div class="controls">
+        <button id="start-btn">TAP TO START GAME</button>
         <button class="rotate" id="btn-rotate">ROTATE</button>
         <button id="btn-left">LEFT</button>
         <button id="btn-down">DOWN</button>
@@ -83,15 +84,17 @@
         context.fillRect(0, 0, canvas.width, canvas.height);
         drawMatrix(arena, {x: 0, y: 0}, context);
         
-        const ghostPos = { x: player.pos.x, y: player.pos.y };
-        while (!collide(arena, {pos: ghostPos, matrix: player.matrix})) ghostPos.y++;
-        ghostPos.y--;
-        drawMatrix(player.matrix, ghostPos, context, true);
-        drawMatrix(player.matrix, player.pos, context);
+        if (player.matrix) {
+            const ghostPos = { x: player.pos.x, y: player.pos.y };
+            while (!collide(arena, {pos: ghostPos, matrix: player.matrix})) ghostPos.y++;
+            ghostPos.y--;
+            drawMatrix(player.matrix, ghostPos, context, true);
+            drawMatrix(player.matrix, player.pos, context);
+        }
 
         nCtx.fillStyle = '#111';
         nCtx.fillRect(0, 0, nCanvas.width, nCanvas.height);
-        drawMatrix(nextPieceMatrix, {x: 1, y: 1}, nCtx);
+        if (nextPieceMatrix) drawMatrix(nextPieceMatrix, {x: 1, y: 1}, nCtx);
     }
 
     function drawMatrix(matrix, offset, ctx, isGhost = false) {
@@ -117,6 +120,7 @@
     }
 
     function playerRotate() {
+        if (!running) return;
         const pos = player.pos.x;
         let offset = 1;
         const m = player.matrix;
@@ -139,26 +143,10 @@
     }
 
     function playerDrop() {
+        if (!running) return;
         player.pos.y++;
         if (collide(arena, player)) {
             player.pos.y--;
             player.matrix.forEach((row, y) => {
                 row.forEach((val, x) => {
-                    if (val !== 0) arena[y + player.pos.y][x + player.pos.x] = val;
-                });
-            });
-            playerReset();
-            arenaSweep();
-        }
-        dropCounter = 0;
-    }
-
-    function playerMove(dir) {
-        player.pos.x += dir;
-        if (collide(arena, player)) player.pos.x -= dir;
-    }
-
-    function playerReset() {
-        const pieces = 'ILJOTSZ';
-        player.matrix = nextPieceMatrix || createPiece(pieces[pieces.length * Math.random() | 0]);
-        nextPieceMatrix = createPiece(pieces[pieces.length * Math.random() |
+                    if (val !== 0)
