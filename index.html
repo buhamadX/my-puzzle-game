@@ -2,28 +2,99 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TETRIS ULTIMATE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tetris Mobile Pro</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
-        #game-ui { background: #222; padding: 10px; display: flex; justify-content: space-around; font-weight: bold; }
-        canvas { border: 2px solid #555; background: #000; height: 70vh; margin-top: 10px; }
-        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 10px; max-width: 300px; margin: 0 auto; }
-        button { background: #444; color: white; border: none; padding: 15px; border-radius: 5px; font-size: 16px; cursor: pointer; }
-        button:active { background: #777; }
-        .rotate { grid-column: span 3; }
+        body { 
+            background: #111; 
+            color: #fff; 
+            font-family: sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            overflow: hidden; 
+            /* Prevents the whole page from bouncing/zooming on mobile */
+            touch-action: none; 
+        }
+
+        .ui-top { 
+            display: flex; 
+            justify-content: space-around; 
+            align-items: center; 
+            background: #222; 
+            padding: 10px; 
+            height: 80px;
+        }
+
+        .stat-box { display: flex; flex-direction: column; }
+        .label { font-size: 10px; color: #888; }
+        .value { font-size: 18px; font-weight: bold; }
+
+        #nextCanvas { 
+            border: 1px solid #444; 
+            background: #000; 
+            width: 50px; 
+            height: 50px; 
+        }
+
+        canvas#tetris { 
+            border: 3px solid #333; 
+            background: #000; 
+            height: 55vh; 
+            margin-top: 5px; 
+        }
+
+        .controls { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 10px; 
+            padding: 15px; 
+            max-width: 350px; 
+            margin: 0 auto; 
+        }
+
+        button { 
+            background: #333; 
+            color: white; 
+            border: none; 
+            padding: 20px; 
+            border-radius: 12px; 
+            font-size: 18px; 
+            font-weight: bold;
+            /* CRITICAL: Stops double-tap zoom on the buttons */
+            touch-action: manipulation; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        button:active { background: #555; transform: scale(0.95); }
+        .rotate-btn { grid-column: span 3; background: #444; }
     </style>
 </head>
 <body>
 
-    <div id="game-ui">
-        <div>SCORE: <span id="score">0</span></div>
-        <div>BEST: <span id="high">0</span></div>
+    <div class="ui-top">
+        <div class="stat-box">
+            <span class="label">SCORE</span>
+            <span id="score" class="value">0</span>
+        </div>
+        <div class="stat-box">
+            <span class="label">LEVEL</span>
+            <span id="level" class="value">1</span>
+        </div>
+        <div class="stat-box">
+            <span class="label">NEXT</span>
+            <canvas id="nextCanvas" width="40" height="40"></canvas>
+        </div>
+        <div class="stat-box">
+            <span class="label">BEST</span>
+            <span id="best" class="value">0</span>
+        </div>
     </div>
 
     <canvas id="tetris" width="240" height="400"></canvas>
 
     <div class="controls">
-        <button class="rotate" onmousedown="pRotate()">ROTATE</button>
+        <button class="rotate-btn" onmousedown="pRotate()">ROTATE</button>
         <button onmousedown="pMove(-1)">LEFT</button>
         <button onmousedown="pDrop()">DOWN</button>
         <button onmousedown="pMove(1)">RIGHT</button>
@@ -34,29 +105,58 @@
     const context = canvas.getContext('2d');
     context.scale(20, 20);
 
+    const nextCanvas = document.getElementById('nextCanvas');
+    const nextCtx = nextCanvas.getContext('2d');
+    nextCtx.scale(10, 10);
+
     const colors = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
     const arena = Array.from({length: 20}, () => Array(12).fill(0));
-    const player = { pos: {x: 5, y: 0}, matrix: [[0,1,0],[1,1,1],[0,0,0]] };
+    
+    let score = 0;
+    let level = 1;
+    let dropInterval = 1000;
+    let dropCounter = 0;
+    let lastTime = 0;
+    let nextPieceMatrix = null;
+
+    const player = {
+        pos: {x: 0, y: 0},
+        matrix: null,
+    };
+
+    function createPiece(type) {
+        if (type === 'I') return [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]];
+        if (type === 'L') return [[0, 2, 0], [0, 2, 0], [0, 2, 2]];
+        if (type === 'J') return [[0, 3, 0], [0, 3, 0], [3, 3, 0]];
+        if (type === 'O') return [[4, 4], [4, 4]];
+        if (type === 'Z') return [[5, 5, 0], [0, 5, 5], [0, 0, 0]];
+        if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
+        if (type === 'T') return [[0, 7, 0], [7, 7, 7], [0, 0, 0]];
+    }
 
     function draw() {
         context.fillStyle = '#000';
         context.fillRect(0, 0, canvas.width, canvas.height);
-        drawMatrix(arena, {x: 0, y: 0});
-        drawMatrix(player.matrix, player.pos);
+        drawMatrix(arena, {x: 0, y: 0}, context);
+        drawMatrix(player.matrix, player.pos, context);
+
+        nextCtx.fillStyle = '#000';
+        nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+        drawMatrix(nextPieceMatrix, {x: 1, y: 1}, nextCtx);
     }
 
-    function drawMatrix(matrix, offset) {
+    function drawMatrix(matrix, offset, ctx) {
         matrix.forEach((row, y) => {
             row.forEach((value, x) => {
                 if (value !== 0) {
-                    context.fillStyle = colors[value];
-                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    ctx.fillStyle = colors[value];
+                    ctx.fillRect(x + offset.x, y + offset.y, 1, 1);
                 }
             });
         });
     }
 
-    function collide() {
+    function collide(arena, player) {
         const [m, o] = [player.matrix, player.pos];
         for (let y = 0; y < m.length; ++y) {
             for (let x = 0; x < m[y].length; ++x) {
@@ -66,28 +166,12 @@
         return false;
     }
 
-    function merge() {
+    function merge(arena, player) {
         player.matrix.forEach((row, y) => {
             row.forEach((value, x) => {
                 if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
             });
         });
-    }
-
-    function pDrop() {
-        player.pos.y++;
-        if (collide()) {
-            player.pos.y--;
-            merge();
-            playerReset();
-            arenaSweep();
-        }
-        dropCounter = 0;
-    }
-
-    function pMove(dir) {
-        player.pos.x += dir;
-        if (collide()) player.pos.x -= dir;
     }
 
     function pRotate() {
@@ -96,54 +180,32 @@
             for (let x = 0; x < y; ++x) [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
         }
         matrix.forEach(row => row.reverse());
-        if (collide()) matrix.forEach(row => row.reverse()); // Simple undo if fails
+        if (collide(arena, player)) matrix.forEach(row => row.reverse());
     }
 
-    function arenaSweep() {
-        let scoreVal = parseInt(document.getElementById('score').innerText);
-        outer: for (let y = arena.length - 1; y > 0; --y) {
-            for (let x = 0; x < arena[y].length; ++x) {
-                if (arena[y][x] === 0) continue outer;
-            }
-            arena.splice(y, 1);
-            arena.unshift(new Array(12).fill(0));
-            scoreVal += 10;
-            y++;
+    function pDrop() {
+        player.pos.y++;
+        if (collide(arena, player)) {
+            player.pos.y--;
+            merge(arena, player);
+            playerReset();
+            arenaSweep();
         }
-        document.getElementById('score').innerText = scoreVal;
+        dropCounter = 0;
+    }
+
+    function pMove(dir) {
+        player.pos.x += dir;
+        if (collide(arena, player)) player.pos.x -= dir;
     }
 
     function playerReset() {
         const pieces = 'ILJOTSZ';
-        const type = pieces[pieces.length * Math.random() | 0];
-        if (type === 'I') player.matrix = [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]];
-        else if (type === 'T') player.matrix = [[0,1,0],[1,1,1],[0,0,0]];
-        else player.matrix = [[1,1],[1,1]]; // Simple backup pieces
-        
+        if (nextPieceMatrix === null) {
+            player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
+        } else {
+            player.matrix = nextPieceMatrix;
+        }
+        nextPieceMatrix = createPiece(pieces[pieces.length * Math.random() | 0]);
         player.pos.y = 0;
-        player.pos.x = 5;
-        if (collide()) arena.forEach(row => row.fill(0)); // Reset arena on Game Over
-    }
-
-    document.addEventListener('keydown', e => {
-        if (e.keyCode === 37) pMove(-1);
-        if (e.keyCode === 39) pMove(1);
-        if (e.keyCode === 40) pDrop();
-        if (e.keyCode === 38) pRotate();
-    });
-
-    let dropCounter = 0;
-    let lastTime = 0;
-    function update(time = 0) {
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        dropCounter += deltaTime;
-        if (dropCounter > 1000) pDrop();
-        draw();
-        requestAnimationFrame(update);
-    }
-
-    update();
-</script>
-</body>
-</html>
+        player.pos
