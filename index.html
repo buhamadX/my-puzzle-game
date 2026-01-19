@@ -3,26 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tetris Mobile Pro</title>
+    <title>Tetris Pro Mobile</title>
     <style>
         * { touch-action: none; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
         
-        /* The Blue Start Overlay */
         #overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: #00d2ff; color: #000; z-index: 999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            cursor: pointer;
         }
 
-        .ui { padding: 15px; background: #111; font-size: 22px; font-weight: bold; color: #00d2ff; }
-        canvas { background: #000; border: 2px solid #444; height: 55vh; width: auto; margin-top: 10px; }
+        .header { display: flex; justify-content: space-around; background: #111; padding: 10px; border-bottom: 2px solid #333; }
+        .stat-box { display: flex; flex-direction: column; }
+        .label { font-size: 10px; color: #00d2ff; }
+        .val { font-size: 18px; font-weight: bold; }
+
+        .game-container { display: flex; justify-content: center; align-items: flex-start; gap: 10px; margin-top: 10px; }
+        canvas#tetris { background: #000; border: 2px solid #444; height: 55vh; width: auto; }
+        
+        .side-bar { display: flex; flex-direction: column; gap: 10px; }
+        .next-box { border: 2px solid #444; background: #111; padding: 5px; border-radius: 5px; }
+        canvas#next { width: 50px; height: 50px; }
 
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; max-width: 360px; margin: 0 auto; }
-        button { 
-            background: #222; color: white; border: 1px solid #444; padding: 20px; border-radius: 12px; font-size: 18px; font-weight: bold;
-        }
+        button { background: #222; color: white; border: 1px solid #444; padding: 20px; border-radius: 12px; font-size: 18px; font-weight: bold; }
         button:active { background: #333; transform: scale(0.95); }
         .rotate { grid-column: span 3; background: #00d2ff; color: #000; }
     </style>
@@ -30,13 +35,25 @@
 <body>
 
     <div id="overlay">
-        <h1 style="margin:0; font-size: 2.5rem;">TETRIS</h1>
-        <p style="font-weight:bold;">TAP SCREEN TO START</p>
+        <h1 style="margin:0;">TETRIS PRO</h1>
+        <p>TAP TO START</p>
     </div>
 
-    <div class="ui">SCORE: <span id="score">0</span></div>
+    <div class="header">
+        <div class="stat-box"><span class="label">SCORE</span><span id="score" class="val">0</span></div>
+        <div class="stat-box"><span class="label">LEVEL</span><span id="level" class="val">1</span></div>
+        <div class="stat-box"><span class="label">BEST</span><span id="high" class="val">0</span></div>
+    </div>
     
-    <canvas id="tetris" width="240" height="400"></canvas>
+    <div class="game-container">
+        <canvas id="tetris" width="240" height="400"></canvas>
+        <div class="side-bar">
+            <div class="next-box">
+                <span class="label">NEXT</span><br>
+                <canvas id="next" width="80" height="80"></canvas>
+            </div>
+        </div>
+    </div>
 
     <div class="controls">
         <button class="rotate" id="btn-rotate">ROTATE</button>
@@ -50,14 +67,21 @@
     const context = canvas.getContext('2d');
     context.scale(20, 20);
 
+    const nCanvas = document.getElementById('next');
+    const nCtx = nCanvas.getContext('2d');
+    nCtx.scale(20, 20);
+
     const arena = Array.from({length: 20}, () => Array(12).fill(0));
     const colors = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
     
     let score = 0;
+    let level = 1;
     let dropCounter = 0;
     let lastTime = 0;
     let running = false;
-    const player = { pos: {x: 5, y: 0}, matrix: null };
+    let nextPieceMatrix = null;
+
+    const player = { pos: {x: 0, y: 0}, matrix: null };
 
     function createPiece(type) {
         if (type === 'I') return [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]];
@@ -72,17 +96,30 @@
     function draw() {
         context.fillStyle = '#000';
         context.fillRect(0, 0, canvas.width, canvas.height);
-        drawMatrix(arena, {x: 0, y: 0});
-        drawMatrix(player.matrix, player.pos);
+        
+        drawMatrix(arena, {x: 0, y: 0}, context);
+
+        // Ghost piece calculation
+        const ghostPos = { x: player.pos.x, y: player.pos.y };
+        while (!collide(arena, {pos: ghostPos, matrix: player.matrix})) ghostPos.y++;
+        ghostPos.y--;
+        drawMatrix(player.matrix, ghostPos, context, true);
+        
+        drawMatrix(player.matrix, player.pos, context);
+
+        // Draw Next Piece Preview
+        nCtx.fillStyle = '#111';
+        nCtx.fillRect(0, 0, nCanvas.width, nCanvas.height);
+        drawMatrix(nextPieceMatrix, {x: 1, y: 1}, nCtx);
     }
 
-    function drawMatrix(matrix, offset) {
-        if(!matrix) return;
+    function drawMatrix(matrix, offset, ctx, isGhost = false) {
+        if (!matrix) return;
         matrix.forEach((row, y) => {
             row.forEach((value, x) => {
                 if (value !== 0) {
-                    context.fillStyle = colors[value];
-                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    ctx.fillStyle = isGhost ? 'rgba(255,255,255,0.15)' : colors[value];
+                    ctx.fillRect(x + offset.x, y + offset.y, 1, 1);
                 }
             });
         });
@@ -110,92 +147,4 @@
             player.pos.x += offset;
             offset = -(offset + (offset > 0 ? 1 : -1));
             if (offset > m[0].length) {
-                return; // Cancel rotation if no room
-            }
-        }
-    }
-
-    function playerDrop() {
-        player.pos.y++;
-        if (collide(arena, player)) {
-            player.pos.y--;
-            player.matrix.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
-                });
-            });
-            playerReset();
-            arenaSweep();
-        }
-        dropCounter = 0;
-    }
-
-    function playerMove(dir) {
-        player.pos.x += dir;
-        if (collide(arena, player)) player.pos.x -= dir;
-    }
-
-    function playerReset() {
-        const pieces = 'ILJOTSZ';
-        player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
-        player.pos.y = 0;
-        player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-        if (collide(arena, player)) {
-            arena.forEach(row => row.fill(0));
-            score = 0;
-            document.getElementById('score').innerText = score;
-        }
-    }
-
-    function arenaSweep() {
-        outer: for (let y = arena.length - 1; y > 0; --y) {
-            for (let x = 0; x < arena[y].length; ++x) {
-                if (arena[y][x] === 0) continue outer;
-            }
-            arena.splice(y, 1);
-            arena.unshift(new Array(12).fill(0));
-            score += 10;
-            document.getElementById('score').innerText = score;
-        }
-    }
-
-    function update(time = 0) {
-        if(!running) return;
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        dropCounter += deltaTime;
-        if (dropCounter > 1000) playerDrop();
-        draw();
-        requestAnimationFrame(update);
-    }
-
-    // --- CRITICAL FIX FOR TAP-TO-START ---
-    const overlay = document.getElementById('overlay');
-    
-    function startTheGame() {
-        if (running) return;
-        overlay.style.display = 'none';
-        running = true;
-        playerReset();
-        update();
-    }
-
-    // Listen for both touch and click on the entire overlay
-    overlay.addEventListener('touchstart', startTheGame, {passive: false});
-    overlay.addEventListener('click', startTheGame);
-
-    // Button Listeners
-    const setupBtn = (id, action) => {
-        const el = document.getElementById(id);
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); action(); }, {passive: false});
-        el.addEventListener('click', (e) => { e.preventDefault(); action(); });
-    };
-
-    setupBtn('btn-left', () => playerMove(-1));
-    setupBtn('btn-right', () => playerMove(1));
-    setupBtn('btn-down', () => playerDrop());
-    setupBtn('btn-rotate', () => playerRotate());
-
-</script>
-</body>
-</html>
+                // Fail-safe: rotate back
