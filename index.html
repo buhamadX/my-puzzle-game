@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tetris Pro Mobile</title>
+    <title>Tetris Mobile Fix</title>
     <style>
         * { touch-action: none; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
         
+        /* High-visibility overlay */
         #overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #00d2ff; color: #000; z-index: 999; 
+            background: #ff0055; color: #fff; z-index: 9999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            cursor: pointer; font-size: 30px; font-weight: bold;
         }
 
         .header { display: flex; justify-content: space-around; background: #111; padding: 10px; border-bottom: 2px solid #333; }
@@ -20,39 +22,28 @@
         .val { font-size: 18px; font-weight: bold; }
 
         .game-container { display: flex; justify-content: center; align-items: flex-start; gap: 10px; margin-top: 10px; }
-        canvas#tetris { background: #000; border: 2px solid #444; height: 55vh; width: auto; }
+        canvas#tetris { background: #000; border: 2px solid #444; height: 50vh; width: auto; }
         
-        .side-bar { display: flex; flex-direction: column; gap: 10px; }
         .next-box { border: 2px solid #444; background: #111; padding: 5px; border-radius: 5px; }
         canvas#next { width: 50px; height: 50px; }
 
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; max-width: 360px; margin: 0 auto; }
-        button { background: #222; color: white; border: 1px solid #444; padding: 20px; border-radius: 12px; font-size: 18px; font-weight: bold; }
-        button:active { background: #333; transform: scale(0.95); }
+        button { background: #222; color: white; border: 1px solid #444; padding: 25px 10px; border-radius: 15px; font-size: 20px; font-weight: bold; }
         .rotate { grid-column: span 3; background: #00d2ff; color: #000; }
     </style>
 </head>
 <body>
 
-    <div id="overlay">
-        <h1 style="margin:0;">TETRIS PRO</h1>
-        <p>TAP TO START</p>
-    </div>
+    <div id="overlay">TAP ANYWHERE TO PLAY</div>
 
     <div class="header">
         <div class="stat-box"><span class="label">SCORE</span><span id="score" class="val">0</span></div>
-        <div class="stat-box"><span class="label">LEVEL</span><span id="level" class="val">1</span></div>
         <div class="stat-box"><span class="label">BEST</span><span id="high" class="val">0</span></div>
     </div>
     
     <div class="game-container">
         <canvas id="tetris" width="240" height="400"></canvas>
-        <div class="side-bar">
-            <div class="next-box">
-                <span class="label">NEXT</span><br>
-                <canvas id="next" width="80" height="80"></canvas>
-            </div>
-        </div>
+        <div class="next-box"><span class="label">NEXT</span><br><canvas id="next" width="80" height="80"></canvas></div>
     </div>
 
     <div class="controls">
@@ -74,13 +65,7 @@
     const arena = Array.from({length: 20}, () => Array(12).fill(0));
     const colors = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
     
-    let score = 0;
-    let level = 1;
-    let dropCounter = 0;
-    let lastTime = 0;
-    let running = false;
-    let nextPieceMatrix = null;
-
+    let score = 0, lastTime = 0, dropCounter = 0, running = false, nextPieceMatrix = null;
     const player = { pos: {x: 0, y: 0}, matrix: null };
 
     function createPiece(type) {
@@ -96,18 +81,14 @@
     function draw() {
         context.fillStyle = '#000';
         context.fillRect(0, 0, canvas.width, canvas.height);
-        
         drawMatrix(arena, {x: 0, y: 0}, context);
-
-        // Ghost piece calculation
+        
         const ghostPos = { x: player.pos.x, y: player.pos.y };
         while (!collide(arena, {pos: ghostPos, matrix: player.matrix})) ghostPos.y++;
         ghostPos.y--;
         drawMatrix(player.matrix, ghostPos, context, true);
-        
         drawMatrix(player.matrix, player.pos, context);
 
-        // Draw Next Piece Preview
         nCtx.fillStyle = '#111';
         nCtx.fillRect(0, 0, nCanvas.width, nCanvas.height);
         drawMatrix(nextPieceMatrix, {x: 1, y: 1}, nCtx);
@@ -116,9 +97,9 @@
     function drawMatrix(matrix, offset, ctx, isGhost = false) {
         if (!matrix) return;
         matrix.forEach((row, y) => {
-            row.forEach((value, x) => {
-                if (value !== 0) {
-                    ctx.fillStyle = isGhost ? 'rgba(255,255,255,0.15)' : colors[value];
+            row.forEach((val, x) => {
+                if (val !== 0) {
+                    ctx.fillStyle = isGhost ? 'rgba(255,255,255,0.1)' : colors[val];
                     ctx.fillRect(x + offset.x, y + offset.y, 1, 1);
                 }
             });
@@ -147,4 +128,37 @@
             player.pos.x += offset;
             offset = -(offset + (offset > 0 ? 1 : -1));
             if (offset > m[0].length) {
-                // Fail-safe: rotate back
+                m.forEach(row => row.reverse());
+                for (let y = 0; y < m.length; ++y) {
+                    for (let x = 0; x < y; ++x) [m[x][y], m[y][x]] = [m[y][x], m[x][y]];
+                }
+                player.pos.x = pos;
+                return;
+            }
+        }
+    }
+
+    function playerDrop() {
+        player.pos.y++;
+        if (collide(arena, player)) {
+            player.pos.y--;
+            player.matrix.forEach((row, y) => {
+                row.forEach((val, x) => {
+                    if (val !== 0) arena[y + player.pos.y][x + player.pos.x] = val;
+                });
+            });
+            playerReset();
+            arenaSweep();
+        }
+        dropCounter = 0;
+    }
+
+    function playerMove(dir) {
+        player.pos.x += dir;
+        if (collide(arena, player)) player.pos.x -= dir;
+    }
+
+    function playerReset() {
+        const pieces = 'ILJOTSZ';
+        player.matrix = nextPieceMatrix || createPiece(pieces[pieces.length * Math.random() | 0]);
+        nextPieceMatrix = createPiece(pieces[pieces.length * Math.random() |
