@@ -8,11 +8,15 @@
         img { max-width: 90%; height: auto; border: 2px solid #333; }
         /* This covers one of the differences (the yellow balloon) */
         .spot {
-            position: absolute;
-            width: 50px; height: 80px;
-            left: 88%; top: 45%; /* Positioned over the balloon area */
-            cursor: pointer;
-        }
+    position: absolute;
+    width: 60px; 
+    height: 60px;
+    left: 88%; 
+    top: 45%; 
+    background-color: rgba(255, 0, 0, 0.5); /* This makes it a visible red box */
+    cursor: pointer;
+    z-index: 10;
+}
     </style>
 </head>
 <body>
