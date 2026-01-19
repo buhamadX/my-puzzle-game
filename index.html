@@ -1,30 +1,79 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Find the Difference</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find the Difference Game</title>
     <style>
-        body { text-align: center; font-family: sans-serif; }
-        .container { position: relative; display: inline-block; }
-        img { max-width: 90%; height: auto; border: 2px solid #333; }
-        /* This covers one of the differences (the yellow balloon) */
+        body { text-align: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 20px; }
+        
+        /* The container must be exactly the size of the image */
+        .game-wrapper { 
+            position: relative; 
+            display: inline-block; 
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            line-height: 0; /* Removes extra space under image */
+        }
+
+        img { 
+            max-width: 95vw; /* Fits any screen */
+            height: auto; 
+            border: 4px solid #fff;
+            border-radius: 8px;
+        }
+
+        /* This is the secret area for the yellow balloon */
         .spot {
-    position: absolute;
-    width: 60px; 
-    height: 60px;
-    left: 88%; 
-    top: 45%; 
-    background-color: rgba(255, 0, 0, 0.5); /* This makes it a visible red box */
-    cursor: pointer;
-    z-index: 10;
-}
+            position: absolute;
+            width: 8%;  /* Scaled to image width */
+            height: 15%; /* Scaled to image height */
+            left: 87%;  /* Adjusted for the right-side image */
+            top: 45%;   /* Adjusted for balloon height */
+            background-color: rgba(255, 0, 0, 0.3); /* Semi-transparent red so you can see it for now */
+            cursor: pointer;
+            z-index: 10;
+            border-radius: 50%;
+        }
+
+        #status-message {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+            min-height: 2em;
+        }
+
+        .success { color: #27ae60 !important; }
     </style>
 </head>
 <body>
-    <h1>Find the Difference!</h1>
-    <div class="container">
-        <img src="game.png">
-        <div class="spot" onclick="alert('You found the balloon!')"></div>
+
+    <h1>🔍 Find the Difference</h1>
+    <p>Can you find what's added to the right-side picture?</p>
+
+    <div class="game-wrapper">
+        <img src="game.png" alt="Puzzle Image">
+        
+        <div class="spot" id="balloon-spot" onclick="foundDifference()"></div>
     </div>
-    <p>Click on the differences you see in the right-side image!</p>
+
+    <div id="status-message">Look closely at the right side...</div>
+
+    <script>
+        function foundDifference() {
+            const msg = document.getElementById('status-message');
+            const spot = document.getElementById('balloon-spot');
+            
+            // Change the message
+            msg.innerText = "🎉 AMAZING! You found the yellow balloon!";
+            msg.classList.add('success');
+            
+            // Hide the red helper box and show a green circle instead
+            spot.style.backgroundColor = "transparent";
+            spot.style.border = "4px solid #27ae60";
+        }
+    </script>
+
 </body>
 </html>
