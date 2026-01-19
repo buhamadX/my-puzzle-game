@@ -3,97 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Tetris Zero Zoom</title>
+    <title>Tetris Mobile Locked</title>
     <style>
-        /* This section blocks the double-tap zoom entirely */
-        * { 
-            touch-action: none !important; 
-            -webkit-tap-highlight-color: transparent; 
-            user-select: none; 
-            -webkit-user-select: none;
-            box-sizing: border-box; 
-        }
-
+        /* THE NUCLEAR OPTION FOR ZOOM */
         html, body { 
-            position: fixed; 
-            overflow: hidden; 
-            width: 100%; height: 100%; 
-            margin: 0; padding: 0; 
-            background: #000; color: #fff; font-family: sans-serif;
+            position: fixed; overflow: hidden; width: 100%; height: 100%; 
+            margin: 0; padding: 0; background: #000; color: #fff;
+            touch-action: none !important; -webkit-user-select: none; user-select: none;
         }
 
-        .container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
-
-        .header { height: 50px; display: flex; justify-content: center; align-items: center; background: #111; font-weight: bold; border-bottom: 2px solid #333; }
-        #score-val { color: #00d2ff; margin-left: 10px; }
-
-        #game-area { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; }
-        canvas { background: #050505; border: 2px solid #222; height: 90%; width: auto; border-radius: 4px; }
-
-        /* Chunky buttons that ignore browser zoom */
-        .controls { height: 260px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; background: #111; }
-        .btn { 
-            background: #252525; border-radius: 12px; display: flex; align-items: center; 
-            justify-content: center; font-size: 24px; font-weight: bold; border: 1px solid #444; color: #fff;
-        }
-        .btn:active { background: #00d2ff; color: #000; }
+        .container { display: flex; flex-direction: column; height: 100vh; }
         
-        #start-btn { grid-column: span 3; background: #ff0055; border: none; font-size: 18px; height: 55px; }
-        .rotate-btn { grid-column: span 3; border-color: #00d2ff; color: #00d2ff; }
+        .header { height: 50px; display: flex; justify-content: space-around; align-items: center; background: #111; border-bottom: 2px solid #333; }
+        .stat { font-family: monospace; font-size: 18px; font-weight: bold; color: #00d2ff; }
+
+        .game-view { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; padding: 5px; }
+        canvas { background: #050505; border: 2px solid #222; max-height: 100%; max-width: 100%; }
+
+        /* Control Tray - No real buttons, just a touch area */
+        .touch-tray { 
+            height: 280px; background: #111; display: grid; 
+            grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px;
+        }
+        .t-btn { 
+            background: #252525; border: 1px solid #444; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; font-weight: bold; color: white;
+        }
+        .t-btn:active { background: #00d2ff; color: #000; }
+        .start { grid-column: span 3; background: #ff0055; border: none; }
+        .rotate { grid-column: span 3; color: #00d2ff; border-color: #00d2ff; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">SCORE: <span id="score-val">0</span></div>
-
-    <div id="game-area">
-        <canvas id="tetris" width="240" height="400"></canvas>
+    <div class="header">
+        <div class="stat">SCORE: <span id="sc">0</span></div>
+        <div class="stat">BEST: <span id="hi">0</span></div>
     </div>
 
-    <div class="controls">
-        <div class="btn" id="start-btn">TAP TO START</div>
-        <div class="btn rotate-btn" id="up">ROTATE</div>
-        <div class="btn" id="left">←</div>
-        <div class="btn" id="down">↓</div>
-        <div class="btn" id="right">→</div>
+    <div class="game-view">
+        <canvas id="t" width="240" height="400"></canvas>
+    </div>
+
+    <div class="touch-tray">
+        <div class="t-btn start" id="b-start">START GAME</div>
+        <div class="t-btn rotate" id="b-up">ROTATE</div>
+        <div class="t-btn" id="b-left">←</div>
+        <div class="t-btn" id="b-down">↓</div>
+        <div class="t-btn" id="b-right">→</div>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('tetris');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('t'), ctx = canvas.getContext('2d');
     ctx.scale(20, 20);
 
     const arena = Array.from({length: 20}, () => Array(12).fill(0));
     const colors = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
-    let score = 0, lastTime = 0, dropCounter = 0, running = false;
-    const player = { pos: {x: 0, y: 0}, matrix: null };
+    let score = 0, last = 0, drop = 0, run = false, player = {pos:{x:0,y:0}, matrix:null};
 
-    function createPiece(t) {
+    function create(t) {
         if (t === 'I') return [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]];
-        if (t === 'T') return [[0,7,0],[7,7,7],[0,0,0]];
-        if (t === 'O') return [[6,6],[6,6]];
-        if (t === 'L') return [[0,5,0],[0,5,0],[0,5,5]];
-        if (t === 'J') return [[0,4,0],[0,4,0],[4,4,0]];
-        if (t === 'S') return [[0,3,3],[3,3,0],[0,0,0]];
-        if (t === 'Z') return [[2,2,0],[0,2,2],[0,0,0]];
+        if (t === 'T') return [[0,2,0],[2,2,2],[0,0,0]];
+        if (t === 'O') return [[3,3],[3,3]];
+        if (t === 'L') return [[0,4,0],[0,4,0],[0,4,4]];
+        if (t === 'J') return [[0,5,0],[0,5,0],[5,5,0]];
+        if (t === 'S') return [[0,6,6],[6,6,0],[0,0,0]];
+        if (t === 'Z') return [[7,7,0],[0,7,7],[0,0,0]];
     }
 
     function draw() {
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 12, 20);
-        arena.forEach((row, y) => row.forEach((v, x) => {
-            if (v) { ctx.fillStyle = colors[v]; ctx.fillRect(x, y, 1, 1); }
-        }));
-        if(player.matrix) {
-            player.matrix.forEach((row, y) => row.forEach((v, x) => {
-                if (v) { ctx.fillStyle = colors[v]; ctx.fillRect(x + player.pos.x, y + player.pos.y, 1, 1); }
-            }));
-        }
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,12,20);
+        arena.forEach((r,y)=>r.forEach((v,x)=>{ if(v){ctx.fillStyle=colors[v];ctx.fillRect(x,y,1,1);} }));
+        if(player.matrix) player.matrix.forEach((r,y)=>r.forEach((v,x)=>{ if(v){ctx.fillStyle=colors[v];ctx.fillRect(x+player.pos.x,y+player.pos.y,1,1);} }));
     }
 
     function collide(a, p) {
         const [m, o] = [p.matrix, p.pos];
-        for (let y = 0; y < m.length; ++y) {
-            for (let x = 0; x < m[y].length; ++x) {
-                if (m[y][x] !== 0
+        for(let y=0; y<m.length; ++y) for(let x=0; x<m[y].length; ++x)
+            if(m[y][x]!==0 && (a[y+o.y] && a[y+o.y][x+o.x])!==0) return true;
+        return false;
+    }
+
+    function reset() {
+        const p = 'ILJOTSZ';
+        player.matrix = create(p[p.length*Math.random()|0]);
+        player.pos = {y:0, x:4};
+        if(collide(arena, player)) { arena.forEach(r=>r.fill(0)); score=0; }
+        document.getElementById('sc').innerText = score;
+    }
+
+    function dropP() {
+        player.pos.y++;
+        if(collide(arena, player)) {
+            player.pos.y--;
+            player.matrix.forEach((r,y)=>r.forEach((v,x)=>{ if(v) arena[y+player.pos.y][x+player.pos.x]=v; }));
+            reset();
+            outer: for(let y=arena.length-1; y>0; --y) {
+                for(let x=0; x<arena[y].length; ++x) if(arena[y][x]===0) continue outer;
+                arena.splice(y,1); arena.unshift(new Array(12).fill(0));
+                score+=10; document.getElementById('sc').innerText = score; y++;
+            }
+        }
+        drop = 0;
+    }
+
+    function rot() {
+        const m = player.matrix;
+        for(let y=0; y<m.length; ++y) for(let x=0; x<y; ++x) [m[x][y], m[y][x]]=[m[y][x], m[x][y]];
+        m.forEach(r=>r.reverse());
+        if(collide(arena, player)) m.forEach(r=>r.reverse());
+    }
+
+    function update(t=0) {
+        if(!run) return;
+        const dt = t-last; last=t; drop+=dt;
+        if(drop>1000) dropP();
+        draw(); requestAnimationFrame(update);
+    }
+
+    // GHOST-LISTENER: Prevents zoom by intercepting all touch early
+    function listen(id, fn) {
+        const el = document.getElementById(id);
+        const trigger = (e) => {
+            e.preventDefault(); // KILL ZOOM
+            fn(); draw();
+        };
+        el.addEventListener('touchstart', trigger, {passive: false});
+        el.addEventListener('mousedown', trigger);
+    }
+
+    listen('b-start', () => {
+        if(run) return;
+        run=true; document.getElementById('b-start').style.opacity='0.2';
+        reset(); update();
+    });
+    listen('b-left', () => { player.pos.x--; if(collide(arena, player)) player.pos.x++; });
+    listen('b-right', () => { player.pos.x++; if(collide(arena, player)) player.pos.x--; });
+    listen('b-down', () => dropP());
+    listen('b-up', () => rot());
+
+    // Final High Score check
+    document.getElementById('hi').innerText = localStorage.getItem('th') || 0;
+</script>
+</body>
+</html>
