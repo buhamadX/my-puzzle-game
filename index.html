@@ -1,48 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Find the Difference!</title>
+    <title>Find the Difference</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background-color: #f0f0f0; }
-        .game-container { display: flex; justify-content: center; gap: 20px; margin-top: 20px; position: relative; }
-        .image-box { position: relative; border: 5px solid #333; cursor: crosshair; }
-        img { display: block; max-width: 400px; height: auto; }
-        /* This is the invisible button area for the difference */
-        .difference {
+        body { text-align: center; font-family: sans-serif; }
+        .container { position: relative; display: inline-block; }
+        img { max-width: 90%; height: auto; border: 2px solid #333; }
+        /* This covers one of the differences (the yellow balloon) */
+        .spot {
             position: absolute;
-            width: 50px; height: 50px; /* Adjust size based on your image */
-            border-radius: 50%;
-            border: 3px solid transparent;
-            transition: border 0.3s;
+            width: 50px; height: 80px;
+            left: 88%; top: 45%; /* Positioned over the balloon area */
+            cursor: pointer;
         }
-        .found { border: 3px solid red !important; }
-        #message { font-weight: bold; color: green; margin-top: 15px; font-size: 1.2rem; }
     </style>
 </head>
 <body>
-    <h1>Find the Difference</h1>
-    <p>Find the 1 difference between these two pictures!</p>
-
-    <div class="game-container">
-        <div class="image-box">
-            <img src="https://picsum.photos/id/237/400/400" alt="Original">
-        </div>
-        
-        <div class="image-box" id="right-box">
-            <img src="https://picsum.photos/id/237/400/400" alt="Modified">
-            <div class="difference" style="top: 45%; left: 45%;" onclick="findMe(this)"></div>
-        </div>
+    <h1>Find the Difference!</h1>
+    <div class="container">
+        <img src="game.png">
+        <div class="spot" onclick="alert('You found the balloon!')"></div>
     </div>
-
-    <p id="message"></p>
-
-    <script>
-        function findMe(element) {
-            element.classList.add('found');
-            document.getElementById('message').innerText = "🎉 You found it!";
-        }
-    </script>
+    <p>Click on the differences you see in the right-side image!</p>
 </body>
 </html>
