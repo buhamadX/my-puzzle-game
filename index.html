@@ -1,25 +1,65 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mini Tetris</title>
+    <title>Tetris Mobile Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { background: #202028; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-        canvas { border: solid 2px #fff; background-color: #000; }
-        .stats { font-size: 20px; margin: 10px; }
-        .controls { color: #aaa; font-size: 14px; margin-top: 10px; }
+        body { background: #111; color: #fff; font-family: sans-serif; text-align: center; margin: 0; overflow: hidden; touch-action: manipulation; }
+        canvas { border: 2px solid #444; background: #000; height: 70vh; max-width: 90vw; }
+        .ui { padding: 10px; }
+        #high-score-box { font-size: 14px; color: #ffd700; margin-bottom: 5px; }
+        
+        /* Mobile Controls */
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; max-width: 300px; margin: 0 auto; }
+        button { background: #333; color: white; border: none; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; }
+        button:active { background: #666; }
+        .rotate { grid-column: span 3; background: #444; }
     </style>
 </head>
 <body>
-    <h1>Mini Tetris</h1>
-    <div class="stats">Score: <span id="score">0</span></div>
+
+    <div class="ui">
+        <div id="high-score-box">High Score: <span id="best-name">None</span> - <span id="best-score">0</span></div>
+        <div>Score: <span id="score">0</span></div>
+    </div>
+
     <canvas id="tetris" width="240" height="400"></canvas>
-    <div class="controls">Arrows: Move & Rotate | Down: Drop Fast</div>
+
+    <div class="controls">
+        <button class="rotate" onclick="playerRotate(1)">ROTATE</button>
+        <button onclick="playerMove(-1)">LEFT</button>
+        <button onclick="playerDrop()">DOWN</button>
+        <button onclick="playerMove(1)">RIGHT</button>
+    </div>
 
     <script>
         const canvas = document.getElementById('tetris');
         const context = canvas.getContext('2d');
         context.scale(20, 20);
 
+        let score = 0;
+        let highScore = localStorage.getItem('tetrisHighScore') || 0;
+        let highName = localStorage.getItem('tetrisHighName') || "Player";
+
+        function updateScore() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('best-score').innerText = highScore;
+            document.getElementById('best-name').innerText = highName;
+        }
+
+        function checkHighScore() {
+            if (score > highScore) {
+                let name = prompt("NEW HIGH SCORE! Enter your name:", "Hero");
+                if (!name) name = "Anonymous";
+                highScore = score;
+                highName = name;
+                localStorage.setItem('tetrisHighScore', highScore);
+                localStorage.setItem('tetrisHighName', highName);
+                updateScore();
+            }
+        }
+
+        // --- TETRIS LOGIC ---
         function arenaSweep() {
             let rowCount = 1;
             outer: for (let y = arena.length - 1; y > 0; --y) {
@@ -30,7 +70,7 @@
                 arena.unshift(row);
                 ++y;
                 score += rowCount * 10;
-                updateScore();
+                rowCount *= 2;
             }
         }
 
@@ -51,13 +91,13 @@
         }
 
         function createPiece(type) {
-            if (type === 'T') return [[0, 0, 0], [1, 1, 1], [0, 1, 0]];
-            else if (type === 'O') return [[2, 2], [2, 2]];
-            else if (type === 'L') return [[0, 3, 0], [0, 3, 0], [0, 3, 3]];
-            else if (type === 'J') return [[0, 4, 0], [0, 4, 0], [4, 4, 0]];
-            else if (type === 'I') return [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]];
-            else if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
-            else if (type === 'Z') return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
+            if (type === 'I') return [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]];
+            if (type === 'L') return [[0, 2, 0], [0, 2, 0], [0, 2, 2]];
+            if (type === 'J') return [[0, 3, 0], [0, 3, 0], [3, 3, 0]];
+            if (type === 'O') return [[4, 4], [4, 4]];
+            if (type === 'Z') return [[5, 5, 0], [0, 5, 5], [0, 0, 0]];
+            if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
+            if (type === 'T') return [[0, 7, 0], [7, 7, 7], [0, 0, 0]];
         }
 
         function draw() {
@@ -114,14 +154,14 @@
         }
 
         function playerReset() {
-            const pieces = 'ILJOTSZ';
+            const pieces = 'TJLOSZI';
             player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
             player.pos.y = 0;
             player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
             if (collide(arena, player)) {
+                checkHighScore();
                 arena.forEach(row => row.fill(0));
                 score = 0;
-                updateScore();
             }
         }
 
@@ -143,7 +183,6 @@
         let dropCounter = 0;
         let dropInterval = 1000;
         let lastTime = 0;
-
         function update(time = 0) {
             const deltaTime = time - lastTime;
             lastTime = time;
@@ -153,15 +192,11 @@
             requestAnimationFrame(update);
         }
 
-        function updateScore() {
-            document.getElementById('score').innerText = score;
-        }
-
         const colors = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF'];
         const arena = createMatrix(12, 20);
         const player = { pos: {x: 0, y: 0}, matrix: null };
-        let score = 0;
 
+        // Keyboard support
         document.addEventListener('keydown', event => {
             if (event.keyCode === 37) playerMove(-1);
             else if (event.keyCode === 39) playerMove(1);
