@@ -3,32 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tetris: Ghost Edition</title>
+    <title>Tetris: Neon Juice</title>
     <style>
         * { touch-action: none; -webkit-tap-highlight-color: transparent; }
-        body { background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; overflow: hidden; }
-        .ui { padding: 15px; background: linear-gradient(to bottom, #222, #000); display: flex; justify-content: space-around; border-bottom: 2px solid #333; }
+        body { background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        .ui { padding: 15px; background: rgba(20,20,20,0.95); display: flex; justify-content: space-around; border-bottom: 2px solid #00d2ff; box-shadow: 0 5px 15px rgba(0,210,255,0.3); }
         .stat { display: flex; flex-direction: column; }
-        .label { font-size: 10px; color: #00d2ff; letter-spacing: 1px; }
-        .val { font-size: 20px; font-weight: bold; }
-        #canvas-container { margin-top: 10px; position: relative; display: inline-block; }
-        canvas { border: 2px solid #444; background: #000; box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); height: 60vh; width: auto; }
-        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 15px; max-width: 320px; margin: 0 auto; }
+        .label { font-size: 10px; color: #00d2ff; letter-spacing: 2px; }
+        .val { font-size: 20px; font-weight: bold; text-shadow: 0 0 10px #00d2ff; }
+        #canvas-container { margin-top: 15px; position: relative; display: inline-block; padding: 5px; background: #111; border-radius: 10px; }
+        canvas { background: #000; height: 58vh; width: auto; display: block; border-radius: 5px; }
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 15px; max-width: 340px; margin: 0 auto; }
         button { 
-            background: #222; color: white; border: 1px solid #444; padding: 20px 10px; border-radius: 15px; font-size: 18px; 
-            cursor: pointer; touch-action: manipulation; transition: 0.1s;
+            background: #1a1a1a; color: white; border: 1px solid #333; padding: 22px 10px; border-radius: 18px; font-size: 18px; 
+            cursor: pointer; touch-action: manipulation; transition: all 0.1s; box-shadow: 0 4px 0 #000;
         }
-        button:active { background: #00d2ff; color: #000; transform: scale(0.9); }
-        .rotate { grid-column: span 3; background: #333; border-color: #555; }
-        #start-btn { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); 
+        button:active { background: #00d2ff; color: #000; transform: translateY(4px); box-shadow: 0 0 0 #000; }
+        .rotate { grid-column: span 3; background: #222; border-color: #00d2ff; }
+        #start-btn { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); 
                      color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999; }
     </style>
 </head>
 <body>
 
     <div id="start-btn" onclick="init()">
-        <h1 style="color: #00d2ff; font-size: 3rem; margin-bottom: 0;">TETRIS</h1>
-        <p>TAP TO START</p>
+        <h1 style="color: #00d2ff; font-size: 3.5rem; margin: 0; text-shadow: 0 0 20px #00d2ff;">NEON</h1>
+        <h2 style="margin: 0; letter-spacing: 5px;">TETRIS</h2>
+        <p style="margin-top: 20px; color: #888;">TAP TO START</p>
     </div>
 
     <div class="ui">
@@ -44,7 +45,7 @@
     <div class="controls">
         <button class="rotate" onclick="pRotate()">ROTATE</button>
         <button onclick="pMove(-1)">LEFT</button>
-        <button onclick="pDrop()">DOWN</button>
+        <button onclick="pDrop()">DROP</button>
         <button onclick="pMove(1)">RIGHT</button>
     </div>
 
@@ -65,15 +66,33 @@
         update();
     }
 
+    function drawGrid() {
+        context.strokeStyle = '#111';
+        context.lineWidth = 0.02;
+        for (let i = 0; i < 12; i++) {
+            context.beginPath(); context.moveTo(i, 0); context.lineTo(i, 20); context.stroke();
+        }
+        for (let i = 0; i < 20; i++) {
+            context.beginPath(); context.moveTo(0, i); context.lineTo(12, i); context.stroke();
+        }
+    }
+
     function drawMatrix(matrix, offset, isGhost = false) {
         matrix.forEach((row, y) => row.forEach((val, x) => {
             if (val) {
-                context.fillStyle = isGhost ? 'rgba(255,255,255,0.2)' : colors[val];
-                context.fillRect(x + offset.x, y + offset.y, 1, 1);
-                // Draw a small border for each block
-                context.lineWidth = 0.05;
-                context.strokeStyle = isGhost ? 'rgba(255,255,255,0.1)' : 'black';
-                context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+                if (isGhost) {
+                    context.strokeStyle = 'rgba(255,255,255,0.3)';
+                    context.lineWidth = 0.05;
+                    context.strokeRect(x + offset.x + 0.1, y + offset.y + 0.1, 0.8, 0.8);
+                } else {
+                    // Block Fill
+                    context.fillStyle = colors[val];
+                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    // Subtle Inner Highlight
+                    context.fillStyle = 'rgba(255,255,255,0.2)';
+                    context.fillRect(x + offset.x, y + offset.y, 1, 0.1);
+                    context.fillRect(x + offset.x, y + offset.y, 0.1, 1);
+                }
             }
         }));
     }
@@ -82,17 +101,15 @@
         context.fillStyle = '#000';
         context.fillRect(0, 0, canvas.width, canvas.height);
         
+        drawGrid();
         drawMatrix(arena, {x: 0, y: 0});
 
-        // Calculate Ghost Position
         const ghostPos = { x: player.pos.x, y: player.pos.y };
-        while (!collide(arena, { pos: ghostPos, matrix: player.matrix })) {
-            ghostPos.y++;
-        }
-        ghostPos.y--; // Back up one step
+        while (!collide(arena, { pos: ghostPos, matrix: player.matrix })) { ghostPos.y++; }
+        ghostPos.y--; 
         
-        drawMatrix(player.matrix, ghostPos, true); // Draw Ghost
-        drawMatrix(player.matrix, player.pos);     // Draw Player
+        drawMatrix(player.matrix, ghostPos, true); 
+        drawMatrix(player.matrix, player.pos);     
     }
 
     function collide(arena, p) {
@@ -140,7 +157,7 @@
         if (linesCleared > 0) {
             score += linesCleared * 10 * level;
             level = Math.floor(score / 100) + 1;
-            if ("vibrate" in navigator) navigator.vibrate(50); // Haptic feedback
+            if ("vibrate" in navigator) navigator.vibrate([40, 30, 40]); 
             updateUI();
         }
     }
@@ -169,21 +186,3 @@
         document.getElementById('score').innerText = score;
         document.getElementById('level').innerText = level;
         const hi = localStorage.getItem('t-hi-score') || 0;
-        if (score > hi) localStorage.setItem('t-hi-score', score);
-        document.getElementById('high').innerText = localStorage.getItem('t-hi-score');
-    }
-
-    function update(time = 0) {
-        if (!running) return;
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        dropCounter += deltaTime;
-        const speed = Math.max(100, 1000 - (level * 100));
-        if (dropCounter > speed) pDrop();
-        draw();
-        requestAnimationFrame(update);
-    }
-    updateUI();
-</script>
-</body>
-</html>
